@@ -1,0 +1,193 @@
+{
+  "network": "testnet_bradbury",
+  "contract": "PrecedentInterpreter",
+  "address": "0xa6D97D6dc275F67D4467e409C01327F1bDAd7b37",
+  "admin": "0x57570ccd5045259D24f76a7340653B08549B56dc",
+  "deploy_tx": "0xcca6b58889c2baa6252407e9e67ce55bc9f8c968f26f06b7a9c1d6cbf32d303f",
+  "explorer": "https://explorer-bradbury.genlayer.com/address/0xa6D97D6dc275F67D4467e409C01327F1bDAd7b37",
+  "cases": [
+    {
+      "label": "open-source indexer",
+      "proposal_id": 1,
+      "tx": "0x095281cfa76f3a2d08c49a07044778e6b66f6eb7eb0e9e61a56ba9028b01e014",
+      "status": "ACCEPTED",
+      "result": "AGREE",
+      "ruling": {
+        "compatible": true,
+        "conditions": [
+          "Quarterly public progress reports must be submitted",
+          "Work must be released under OSI-approved license as stated"
+        ],
+        "confidence": 95,
+        "consistency_with_precedents": "novel",
+        "departs_from_precedent_ids": [],
+        "holding": "Grants for open-source infrastructure tools that serve public goods, comply with licensing requirements, and remain below funding caps are compatible with the Community Grants Charter.",
+        "judged_policy_version": 1,
+        "key_reasoning": [
+          "The project qualifies as 'tooling' and 'infrastructure' under POLICY v1.1",
+          "MIT license is OSI-approved, satisfying POLICY v1.2",
+          "Funding request of 30,000 USDC is below the 50,000 USDC cap (POLICY v1.5)",
+          "Project does not involve marketing, token promotion, price support or speculation (POLICY v1.3)",
+          "Applicant commits to quarterly reports as required by POLICY v1.4"
+        ],
+        "kind": "action",
+        "outcome": "precedent_set",
+        "precedent_id": 1,
+        "proposal_id": 1,
+        "relevant_precedent_ids": [],
+        "sources": [],
+        "verdict": "approved_with_conditions"
+      }
+    },
+    {
+      "label": "similar tooling grant",
+      "proposal_id": 2,
+      "tx": "0x1d9a3cf5b9aa7d6d79a17852278e649c2101965b53eacaedd2abde75e7da00cb",
+      "status": "ACCEPTED",
+      "result": "AGREE",
+      "ruling": {
+        "compatible": true,
+        "conditions": [
+          "Quarterly public progress reports must be submitted",
+          "Work must be released under OSI-approved license as stated (Apache-2.0)"
+        ],
+        "confidence": 95,
+        "consistency_with_precedents": "high",
+        "departs_from_precedent_ids": [],
+        "holding": "Grants for open-source infrastructure tools that serve public goods, comply with licensing requirements, and remain below funding caps are compatible with the Community Grants Charter.",
+        "judged_policy_version": 1,
+        "key_reasoning": [
+          "The proposal is for open-source infrastructure tooling (transaction simulator CLI) which aligns with POLICY v1.1",
+          "Funding amount (20,000 USDC) is below the 50,000 USDC cap per POLICY v1.5",
+          "Apache-2.0 is an OSI-approved license, satisfying POLICY v1.2",
+          "The work serves public goods for developers and does not involve marketing, token promotion, or price support per POLICY v1.3 and CORE PRINCIPLES",
+          "The case is materially similar to Precedent #1 (open-source block indexer) in purpose, licensing, and public goods orientation"
+        ],
+        "kind": "action",
+        "outcome": "precedent_set",
+        "precedent_id": 2,
+        "proposal_id": 2,
+        "relevant_precedent_ids": [
+          1
+        ],
+        "sources": [],
+        "verdict": "approved_with_conditions"
+      }
+    },
+    {
+      "label": "marketing campaign",
+      "proposal_id": 3,
+      "tx": "0xc2c0d445e449bfd44ff1080b37853117b3db6972cb0bd4c0de2e03a0504fbd06",
+      "status": "ACCEPTED",
+      "result": "AGREE",
+      "ruling": {
+        "compatible": false,
+        "conditions": [],
+        "confidence": 99,
+        "consistency_with_precedents": "high",
+        "departs_from_precedent_ids": [],
+        "holding": "Grants for public-good open-source work are permissible only when they are not used for marketing, token promotion, or price support, and they must serve the ecosystem rather than a private token's price.",
+        "judged_policy_version": 1,
+        "key_reasoning": [
+          "The request is explicitly for marketing/influencer promotion, which the policy forbids funding.",
+          "It also explicitly seeks a buyback to support the XYZ token's price, which violates the core principle that funds never benefit a private token's price.",
+          "The amount requested is within the cap, but that does not cure the prohibited purpose.",
+          "Precedents approving open-source infrastructure tools are materially different and do not support funding token promotion or price support."
+        ],
+        "kind": "action",
+        "outcome": "precedent_set",
+        "precedent_id": 3,
+        "proposal_id": 3,
+        "relevant_precedent_ids": [
+          1,
+          2
+        ],
+        "sources": [],
+        "verdict": "rejected"
+      }
+    },
+    {
+      "label": "appeal of #3",
+      "proposal_id": 4,
+      "tx": "0x61234421492b1e90e57fead73220a3c29fa7fa1815f0f597ff95a2cd77ce1dd9",
+      "status": "ACCEPTED",
+      "result": "AGREE",
+      "ruling": {
+        "compatible": false,
+        "conditions": [],
+        "confidence": 100,
+        "consistency_with_precedents": "high",
+        "departs_from_precedent_ids": [],
+        "holding": "Grants may not fund marketing campaigns, token promotion, or price support activities, even if they claim indirect ecosystem benefits, as these directly violate the prohibition against benefiting private token prices.",
+        "judged_policy_version": 1,
+        "key_reasoning": [
+          "The original request seeks to fund influencer marketing and token price support through buybacks",
+          "POLICY v1 Section 3 explicitly prohibits grants for marketing campaigns, token promotion, or price support",
+          "The CORE PRINCIPLES forbid using funds to benefit a private token's price",
+          "The appeal argument about 'indirectly benefiting public goods' does not overcome the direct prohibition on token promotion and price support",
+          "Precedent #3 already established that such token promotion campaigns are incompatible with the Charter"
+        ],
+        "kind": "appeal",
+        "outcome": "affirmed",
+        "precedent_id": 0,
+        "proposal_id": 4,
+        "relevant_precedent_ids": [
+          1,
+          2
+        ],
+        "sources": [],
+        "verdict": "rejected"
+      }
+    },
+    {
+      "label": "live evidence URL",
+      "proposal_id": 5,
+      "tx": "0x15fe2a55fc4cab27203ba0043e86ba3768dd01706c4c62e1405305ba794aa796",
+      "status": "VALIDATORS_TIMEOUT",
+      "result": "TIMEOUT",
+      "ruling": null
+    }
+  ],
+  "policy": {
+    "admin": "0x57570ccd5045259D24f76a7340653B08549B56dc",
+    "core_principles": "Funds serve public goods only and never benefit a private token's price.",
+    "min_precedent_confidence": 60,
+    "paused": false,
+    "precedents": 3,
+    "proposals": 4,
+    "text": "1. Grants fund open-source public goods for the ecosystem: tooling, research, education, infrastructure.\n2. Funded work must be released under an OSI-approved license.\n3. Grants must not fund marketing campaigns, token promotion, price support or speculation.\n4. Recipients publish a public progress report each quarter; the committee may attach conditions.\n5. A single grant may not exceed 50,000 USDC.",
+    "title": "Community Grants Charter",
+    "version": 1
+  },
+  "precedents_in_force": [
+    {
+      "id": 3,
+      "title": "Influencer campaign for the XYZ token",
+      "verdict": "rejected",
+      "holding": "Grants for public-good open-source work are permissible only when they are not used for marketing, token promotion, or price support, and they must serve the ecosystem rather than a private token's price.",
+      "relevant_precedent_ids": [
+        1,
+        2
+      ],
+      "affirmations": 1
+    },
+    {
+      "id": 2,
+      "title": "Fund an open-source transaction simulator",
+      "verdict": "approved_with_conditions",
+      "holding": "Grants for open-source infrastructure tools that serve public goods, comply with licensing requirements, and remain below funding caps are compatible with the Community Grants Charter.",
+      "relevant_precedent_ids": [
+        1
+      ],
+      "affirmations": 0
+    },
+    {
+      "id": 1,
+      "title": "Fund an open-source block indexer",
+      "verdict": "approved_with_conditions",
+      "holding": "Grants for open-source infrastructure tools that serve public goods, comply with licensing requirements, and remain below funding caps are compatible with the Community Grants Charter.",
+      "relevant_precedent_ids": [],
+      "affirmations": 0
+    }
+  ]
+}

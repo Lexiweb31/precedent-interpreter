@@ -3,7 +3,8 @@ Add a live-evidence case to the contract in deployments.json: a grant whose
 licensing claim is backed by an evidence URL that every validator fetches
 inside the consensus round. Appends the result to deployments.json.
 
-    python scripts/demo_evidence_case.py
+    python scripts/demo_evidence_case.py        # submit + interpret
+    python scripts/demo_evidence_case.py 5      # retry interpret on proposal 5
 """
 import json
 import sys
@@ -24,8 +25,11 @@ def main() -> int:
     record = json.loads((ROOT / "deployments.json").read_text())
     client = create_client(chain=testnet_bradbury, account=create_account(_env("DEPLOYER_PRIVATE_KEY")))
     address = record["address"]
-    _send(client, address, "submit_proposal", [TITLE, DESC, TAGS, EVIDENCE])
-    pid = _view(client, address, "get_policy")["proposals"]
+    if len(sys.argv) > 1:  # resume an already-submitted proposal after an RPC failure
+        pid = int(sys.argv[1])
+    else:
+        _send(client, address, "submit_proposal", [TITLE, DESC, TAGS, EVIDENCE])
+        pid = _view(client, address, "get_policy")["proposals"]
     case = _interpret(client, address, pid, "live evidence URL")
     if case["ruling"]:
         print(f"    sources: {case['ruling']['sources']}")
