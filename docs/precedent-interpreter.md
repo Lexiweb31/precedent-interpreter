@@ -56,7 +56,7 @@ The **holding** (a one-sentence general rule, without names) is what makes prece
 
 `interpret()` reads storage, builds a plain-value context and calls `gl.vm.run_nondet(leader_fn, validator_fn)`:
 
-1. **Leader:** fetches every evidence URL live (`gl.nondet.web.render`), builds the prompt and calls `gl.nondet.exec_prompt`. It then normalises the answer into a fixed schema and returns `{ruling, sources}`.
+1. **Leader:** fetches every evidence URL live (`gl.nondet.web.get`, rendering only HTML), builds the prompt and calls `gl.nondet.exec_prompt`. It then normalises the answer into a fixed schema and returns `{ruling, sources}`.
 2. **Validator:** runs the **same `leader_fn` independently**: its own fetches, its own LLM call, its own normalisation. It never sees the leader's answer before forming its own, so it can't rubber-stamp. It then calls `_rulings_equivalent(leader, mine)`.
 3. State is written in `_apply()`, **only after** consensus returns.
 
@@ -97,7 +97,7 @@ The **holding** (a one-sentence general rule, without names) is what makes prece
 | No precedents, or none relevant | Prompt says "first impression". Ruling is forced to `novel` with no citations. |
 | LLM cites a non-existent or unshown precedent | Dropped by `_id_list`. A leader that keeps it fails rule 0. |
 | Conflicting precedents | The model must list any it departs from (`departs_from_precedent_ids`). Departure caps consistency at `medium`, and validators must agree a departure happened. |
-| Evidence fetch failure | Recorded per URL with an error, and the prompt shows `UNAVAILABLE ... do not guess`. Validators must see the same availability. |
+| Evidence fetch failure | Each URL is fetched with `web.get`, falling back to `web.render` only for HTML (the renderer is slow enough to time out Bradbury rounds). Failures are recorded per URL with an error, and the prompt shows `UNAVAILABLE ... do not guess`. Validators must see the same availability. |
 | Thin evidence | `insufficient_evidence` changes no law. The proposer can `add_evidence` (max 4 URLs) and anyone can re-run `interpret()`, at their own gas cost. |
 | Malformed or non-JSON LLM output | `_parse_json` extracts the first `{...}`, tolerating code fences. Unknown verdict values raise `UserError`, so the transaction reverts and nothing is stored. |
 | Float or string confidence | Parsed in the contract (`response_format="text"`), so floats never cross calldata. `0.9` becomes 90 and junk becomes 0. |

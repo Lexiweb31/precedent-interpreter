@@ -1,0 +1,131 @@
+{
+  "network": "testnet_bradbury",
+  "contract": "PrecedentInterpreter",
+  "address": "0xfE3DE78ef881cb471C00d8316759DfAd27657262",
+  "admin": "0x57570ccd5045259D24f76a7340653B08549B56dc",
+  "deploy_tx": "0x8028b5f01593ac6c037bff4366b903a6bcb544afb49c8b0ad2e3610b12c78d6a",
+  "explorer": "https://explorer-bradbury.genlayer.com/address/0xfE3DE78ef881cb471C00d8316759DfAd27657262",
+  "cases": [
+    {
+      "label": "open-source indexer",
+      "proposal_id": 1,
+      "tx": "0x596456e085a712bfc7d12c0d553f5c08f0e71e2b84db0e27361c50db5e7f1228",
+      "status": "UNDETERMINED",
+      "result": "AGREE",
+      "ruling": {
+        "compatible": true,
+        "conditions": [
+          "Recipient must publish quarterly progress reports as required by Policy v1.4",
+          "All deliverables must be released under OSI-approved license (MIT license qualifies)",
+          "Grant funds must not be used for marketing campaigns, token promotion, price support, or speculation"
+        ],
+        "confidence": 95,
+        "consistency_with_precedents": "novel",
+        "departs_from_precedent_ids": [],
+        "holding": "Open-source infrastructure tools that serve public goods, comply with OSI-approved licensing, and remain within funding limits are compatible with the Community Grants Charter when accompanied by required reporting.",
+        "judged_policy_version": 1,
+        "key_reasoning": [
+          "The project qualifies as public goods tooling and infrastructure under Policy v1.1",
+          "MIT license is OSI-approved, satisfying Policy v1.2",
+          "Requested amount (30,000 USDC) is below the 50,000 USDC limit in Policy v1.5",
+          "The description explicitly mentions quarterly reports, aligning with Policy v1.4",
+          "No evidence of prohibited activities like marketing campaigns or token promotion"
+        ],
+        "kind": "action",
+        "outcome": "precedent_set",
+        "precedent_id": 1,
+        "proposal_id": 1,
+        "relevant_precedent_ids": [],
+        "sources": [],
+        "verdict": "approved_with_conditions"
+      },
+      "note": "ACCEPTED/AGREE in the first round, then re-run by validators; the re-run reached no majority, so the ruling was not applied"
+    },
+    {
+      "label": "live evidence URL",
+      "proposal_id": 2,
+      "tx": "0x0a48a7f3b7cef6bc8b8500ccaf80dbdf5c18b8163aa8b7b8733e5a1a87e24fae",
+      "status": "UNDETERMINED",
+      "result": "AGREE",
+      "ruling": {
+        "compatible": true,
+        "conditions": [
+          "Recipient must publish quarterly progress reports as required by Policy v1.4",
+          "All deliverables must be released under OSI-approved license (MIT license qualifies)",
+          "Grant funds must not be used for marketing campaigns, token promotion, price support, or speculation"
+        ],
+        "confidence": 95,
+        "consistency_with_precedents": "high",
+        "departs_from_precedent_ids": [],
+        "holding": "Maintenance of open-source tooling under OSI-approved licenses, with required reporting and within funding limits, is compatible with the Community Grants Charter when serving ecosystem public goods.",
+        "judged_policy_version": 1,
+        "key_reasoning": [
+          "The request is for maintenance of an MIT-licensed JavaScript library, which qualifies as 'tooling' under Policy v1.1",
+          "The MIT license is OSI-approved, satisfying Policy v1.2",
+          "The amount (15,000 USDC) is below the 50,000 USDC cap per Policy v1.5",
+          "The work described (security fixes and documentation) serves as a public good for ecosystem frontends",
+          "The description explicitly states quarterly public reports will be published, aligning with Policy v1.4"
+        ],
+        "kind": "action",
+        "outcome": "precedent_set",
+        "precedent_id": 2,
+        "proposal_id": 2,
+        "relevant_precedent_ids": [
+          1
+        ],
+        "sources": [
+          {
+            "error": "",
+            "ok": true,
+            "url": "https://raw.githubusercontent.com/jquery/jquery/main/LICENSE.txt"
+          }
+        ],
+        "verdict": "approved_with_conditions"
+      },
+      "note": "ACCEPTED/AGREE in the first round, then re-run by validators; the re-run reached no majority, so the ruling was not applied"
+    },
+    {
+      "label": "similar tooling grant",
+      "proposal_id": 3,
+      "tx": "0xb6968203d63a3d8ef27e291549d209ec4b2426aa5f8b6d1dba695a2b7a1c72dd",
+      "status": "UNDETERMINED",
+      "result": "AGREE",
+      "ruling": {
+        "compatible": true,
+        "conditions": [
+          "Recipient must publish quarterly progress reports as required by Policy v1.4",
+          "All deliverables must be released under OSI-approved license (Apache-2.0 license qualifies)",
+          "Grant funds must not be used for marketing campaigns, token promotion, price support, or speculation"
+        ],
+        "confidence": 95,
+        "consistency_with_precedents": "high",
+        "departs_from_precedent_ids": [],
+        "holding": "Open-source developer tooling that serves ecosystem public goods, complies with OSI-approved licensing, remains within funding limits, and includes required reporting is compatible with the Community Grants Charter.",
+        "judged_policy_version": 1,
+        "key_reasoning": [
+          "Transaction simulator CLI qualifies as 'tooling' under Policy v1.1 for ecosystem public goods",
+          "Apache-2.0 is an OSI-approved license satisfying Policy v1.2",
+          "20,000 USDC request is within the 50,000 USDC limit of Policy v1.5",
+          "Case explicitly includes quarterly public reports, aligning with Policy v1.4",
+          "No indication of marketing, token promotion, price support, or speculation violating Policy v1.3"
+        ],
+        "kind": "action",
+        "outcome": "precedent_set",
+        "precedent_id": 3,
+        "proposal_id": 3,
+        "relevant_precedent_ids": [
+          1,
+          2
+        ],
+        "sources": [],
+        "verdict": "approved_with_conditions"
+      },
+      "note": "ACCEPTED/AGREE in the first round, then re-run by validators; the re-run reached no majority, so the ruling was not applied"
+    }
+  ],
+  "note": "v2 = v1 + web.get-before-render evidence fetch. All three interpret() rounds were accepted, then ended UNDETERMINED on re-run; contract state shows 2 pending proposals and no precedents.",
+  "final_state": {
+    "proposals": 2,
+    "precedents": 0
+  }
+}

@@ -4,6 +4,7 @@ A GenLayer Intelligent Contract that interprets a natural-language policy the wa
 
 - Contract: [contracts/precedent_interpreter.py](contracts/precedent_interpreter.py)
 - Design notes (state, Equivalence Principle, edge cases, integration): [docs/precedent-interpreter.md](docs/precedent-interpreter.md)
+- Submission summary: [PROJECT_SUBMISSION.md](PROJECT_SUBMISSION.md)
 
 ## Deploy
 
@@ -24,7 +25,7 @@ Contract [`0xa6D97D6dc275F67D4467e409C01327F1bDAd7b37`](https://explorer-bradbur
 
 Holding stored for #3: *"Grants for public-good open-source work are permissible only when they are not used for marketing, token promotion, or price support, and they must serve the ecosystem rather than a private token's price."*
 
-A fifth case with a live evidence URL (proposal 5, citing a license file on raw.githubusercontent.com) timed out in all five consensus rounds tried (3 leader, 2 validator timeouts), so it has no ruling yet and is still open. The text-only cases committed within one to three tries, so rendering the page inside the round is the likely bottleneck. The evidence-fetch path is so far covered only by the direct-mode tests.
+A fifth case with a live evidence URL timed out in every round on this contract. The source now fetches with `web.get` before falling back to the browser renderer. On a redeploy of that fix, validators fetched the evidence and agreed in the first round, but the rounds were then re-run and ended undetermined. See [PROJECT_SUBMISSION.md](PROJECT_SUBMISSION.md#live-evidence-fetching-honest-status) and [deployments-v2.json](deployments-v2.json).
 
 Some rounds needed retries: one `NO_MAJORITY` (validators split, so the equivalence check refused to commit) and several leader or validator timeouts, which are common on Bradbury and leave state unchanged.
 

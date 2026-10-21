@@ -88,7 +88,7 @@ def _committed(receipt) -> bool:
     )
 
 
-def _send(client, address, method, args, attempts=3):
+def _send(client, address, method, args, attempts=6):
     """Send a write; resend if Bradbury reverts the EVM wrapper tx (no state change)."""
     for i in range(attempts):
         try:
