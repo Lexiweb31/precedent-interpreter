@@ -9,7 +9,7 @@ A GenLayer Intelligent Contract that interprets a natural-language policy the wa
 
 Constructor: `(policy_title, policy_text, core_principles="", min_precedent_confidence=60)`
 
-The source is kept under 20 KB and ASCII-only, so it fits Bradbury's deploy gas cap. `tests/direct/test_contract_size.py` enforces both.
+Bradbury's deploy gas cap covers source **and** constructor args. The source is kept at 19.3 KB or less and ASCII-only (enforced by `tests/direct/test_contract_size.py`), leaving about 1 KB for the opening policy. Load longer policies with `extend_policy(text)` before the first case. `python scripts/deploy_bradbury.py --demo` deploys and runs a demo; it reads `DEPLOYER_PRIVATE_KEY` from the environment or `.env`.
 
 ## Test
 

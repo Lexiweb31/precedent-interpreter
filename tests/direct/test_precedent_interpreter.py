@@ -160,16 +160,12 @@ class TestInterpretation:
         with pytest.raises(Exception):
             c.interpret(1)
 
-    def test_withdraw_only_by_proposer(self, direct_deploy, direct_vm):
+    def test_add_evidence_only_by_proposer(self, direct_deploy, direct_vm):
         c = _deploy(direct_deploy)
         c.submit_proposal("t", "d", [], [])
-        me = direct_vm.sender
         direct_vm.sender = _addr("stranger")
         with pytest.raises(Exception):
-            c.withdraw(1)
-        direct_vm.sender = me
-        c.withdraw(1)
-        assert c.get_proposal(1)["status"] == "withdrawn"
+            c.add_evidence(1, "https://x.example/a")
 
 
 class TestAppealsAndAmendments:
@@ -221,6 +217,20 @@ class TestAppealsAndAmendments:
         assert pol["version"] == 2 and pol["text"] == new_text
         _rule(c, direct_vm, _llm("approved"))
         assert c.get_precedent(3)["policy_version"] == 2
+
+
+class TestPolicyDrafting:
+    def test_extend_policy_before_cases_only(self, direct_deploy, direct_vm):
+        c = _deploy(direct_deploy)
+        c.extend_policy("6. Grants above 10,000 USDC need two milestones.")
+        assert c.get_policy()["text"].endswith("two milestones.")
+        direct_vm.sender = _addr("stranger")
+        with pytest.raises(Exception):
+            c.extend_policy("x")
+        direct_vm.sender = _addr("default_sender")
+        c.submit_proposal("t", "d", [], [])
+        with pytest.raises(Exception):
+            c.extend_policy("7. Too late.")
 
 
 class TestEquivalence:

@@ -9,7 +9,9 @@ from pathlib import Path
 import pytest
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
-MAX_SOURCE_BYTES = 20_000  # ~16.6M gas
+# Deploy gas covers source AND constructor args (~830 gas/byte, cap ~16.78M).
+# 19,973 B with tiny args estimated 16.60M; leave ~1 KB for the policy text.
+MAX_SOURCE_BYTES = 19_300
 
 
 @pytest.mark.parametrize("path", sorted(CONTRACTS.glob("*.py")), ids=lambda p: p.name)

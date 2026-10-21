@@ -1,22 +1,19 @@
 # { "Seq": [{ "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }] }
 """Precedent-Based Policy Interpreter: case law for natural-language rules.
 
-A policy plus a growing body of precedents. Cases are judged against the policy
-AND prior rulings; confident rulings become precedents; appeals affirm or
-supersede them; amendments must themselves pass judgment.
-
-Consensus: gl.vm.run_nondet over deterministically chosen precedents. Leader
-and each validator independently fetch evidence, ask an LLM and normalise;
-validators vote with _rulings_equivalent() on decision fields only. Prose is
-never compared.
-Rationale: docs/precedent-interpreter.md. Keep under 20 KB, ASCII only."""
+Cases are judged against a policy AND prior rulings; confident rulings become
+precedents, appeals affirm or supersede them, amendments must pass judgment.
+Consensus: gl.vm.run_nondet; every validator re-fetches evidence and re-judges
+with its own LLM, then votes on decision fields only (_rulings_equivalent).
+Rationale: docs/precedent-interpreter.md. Deploy gas caps source + args near
+20 KB: keep this file under 19.3 KB, ASCII only."""
 from genlayer import *
 
 from dataclasses import dataclass, fields
 import json
 import re
 
-PENDING, RULED, INSUFFICIENT, WITHDRAWN = "pending", "ruled", "insufficient_evidence", "withdrawn"
+PENDING, RULED, INSUFFICIENT = "pending", "ruled", "insufficient_evidence"
 OPEN = (PENDING, INSUFFICIENT)
 ACTION, AMENDMENT, APPEAL = "action", "amendment", "appeal"
 VERDICTS = ("approved", "approved_with_conditions", "rejected", "insufficient_evidence")
@@ -28,7 +25,7 @@ _STOP = frozenset("that this with from have will would should could their they t
 MAX_POLICY, MAX_TITLE, MAX_DESC = 8000, 160, 4000
 MAX_TAGS, MAX_URLS, FETCH_CHARS = 6, 4, 5000
 MAX_CANDIDATES, RECENT_WINDOW, TAG_WINDOW = 8, 24, 48  # retrieval limits
-MAX_ATTEMPTS, MAX_APPEALS = 3, 3  # per proposal / per precedent
+MAX_APPEALS = 3  # per precedent
 CONF_TOL, MIN_OVERLAP = 20, 0.5
 
 @allow_storage
@@ -45,7 +42,6 @@ class Proposal:
 	appeal_of: u256
 	status: str
 	submitted_at: str
-	attempts: u256
 	precedent_id: u256  # 0 if none set
 	ruling_json: str
 
@@ -54,7 +50,6 @@ class Proposal:
 class Precedent:
 	id: u256
 	proposal_id: u256
-	kind: str
 	policy_version: u256
 	title: str
 	holding: str  # general rule later cases apply
@@ -94,7 +89,7 @@ def _keywords(text: str) -> list:
 def _clean_tags(tags) -> list:
 	out = []
 	for t in tags or []:
-		t = re.sub(r"[^a-z0-9-]", "", str(t).strip().lower().replace(" ", "-"))[:32]
+		t = re.sub(r"[^a-z0-9-]", "", str(t).lower())[:32]
 		if t and t not in out:
 			out.append(t)
 	_require(len(out) <= MAX_TAGS, f"At most {MAX_TAGS} tags")
@@ -104,7 +99,7 @@ def _clean_urls(urls) -> list:
 	out = [str(u).strip() for u in urls or [] if str(u).strip()]
 	_require(len(out) <= MAX_URLS, f"At most {MAX_URLS} URLs")
 	for u in out:
-		_require(u.startswith(("https://", "http://")) and len(u) <= 2048, "Invalid URL")
+		_require(u.startswith(("https://", "http://")) and len(u) < 2049, "Invalid URL")
 	return out
 
 def _text(value, limit: int, field: str) -> str:
@@ -120,7 +115,7 @@ def _parse_json(raw) -> dict:
 		data = json.loads(text[text.find("{"):text.rfind("}") + 1])
 	except ValueError:
 		data = None
-	_require(isinstance(data, dict), "LLM did not return a JSON object")
+	_require(isinstance(data, dict), "LLM gave no JSON object")
 	return data
 
 def _canon(value, vocab: tuple, field: str) -> str:
@@ -175,7 +170,7 @@ def _normalize_ruling(raw, allowed: list) -> dict:
 			"holding": str(d.get("holding") or "").strip()[:400].strip(), "confidence": conf}
 
 def _rulings_equivalent(leader: dict, mine: dict, allowed: list) -> bool:
-	# Leader result must be normalised, cite only shown ids, and see the same sources.
+	# Leader result must be normalised (only shown ids) and see the same sources.
 	try:
 		a = leader["ruling"]
 		if _normalize_ruling(a, allowed) != a:
@@ -217,17 +212,16 @@ def _build_prompt(c: dict, sources: list) -> str:
 	core = f"\nCORE PRINCIPLES (entrenched, unamendable):\n{c['core']}\n" if c["core"] else ""
 	task, extra = "Is the proposed action compatible with the policy?", ""
 	if c["kind"] == AMENDMENT:
-		task = ("May the policy be REPLACED by the AMENDED TEXT? Reject if it conflicts with core principles "
-				"or silently overturns settled precedent.")
+		task = "May the AMENDED TEXT replace the policy? Reject if it breaks core principles or settled precedent."
 		extra = f"\nAMENDED TEXT:\n{c['amendment_text']}"
 	elif c["kind"] == APPEAL:
 		s = c["subject"]
-		task = (f"APPEAL of #{s['id']}: re-decide the ORIGINAL CASE given the appeal argument. Same verdict "
-				"affirms, a different one overturns: only for a clear misreading or materially new evidence.")
+		task = (f"APPEAL of #{s['id']}: re-decide the ORIGINAL CASE given the argument. Overturn only for a clear "
+				"misreading or materially new evidence.")
 		extra = f"\nPRECEDENT UNDER APPEAL:\n{_fmt(s)}\n  Original case: {s['summary']}"
 	ev = "\n".join(f"[Evidence {i + 1}] {s['url']}\n" + (s["text"] or f"(UNAVAILABLE: {s['error']}; do not guess)")
 				   for i, s in enumerate(sources))
-	return f"""Apply the POLICY and its PRECEDENTS (prior rulings) to the case neutrally, by letter and spirit. Follow precedent unless the policy requires otherwise or the case differs materially; list precedents you break with in departs_from_precedent_ids. Older-version rulings weigh less where the text changed.
+	return f"""Apply the POLICY and its PRECEDENTS to the case neutrally, by letter and spirit. Follow precedent unless the policy requires otherwise or the case differs materially; list any you break with in departs_from_precedent_ids. Older-version rulings weigh less.
 
 POLICY v{c['version']}: {c['policy_title']}
 {c['policy_text']}
@@ -245,8 +239,8 @@ Description: {c['description']}{extra}
 {ev}
 === END CASE ===
 
-verdict: approved | approved_with_conditions (binding conditions) | rejected | insufficient_evidence (deciding facts missing or unverifiable). Cite only ids above. consistency: novel = no precedent applies. holding: the general rule set, one sentence, no names.
-JSON only: {{"verdict": str, "compatible": bool, "relevant_precedent_ids": [int], "departs_from_precedent_ids": [int], "consistency_with_precedents": "high|medium|low|novel", "conditions": [str], "key_reasoning": [str], "holding": str, "confidence": 0-100}}"""
+verdict: approved|approved_with_conditions|rejected|insufficient_evidence (deciding facts missing). Cite only ids above. consistency: high|medium|low|novel (none applies). holding: the general rule, one sentence.
+JSON only: {{"verdict": str, "compatible": bool, "relevant_precedent_ids": [int], "departs_from_precedent_ids": [int], "consistency_with_precedents": str, "conditions": [str], "key_reasoning": [str], "holding": str, "confidence": 0-100}}"""
 
 def _run_interpretation(ctx: dict) -> dict:
 	# ctx holds plain values: storage is unreadable in non-det code.
@@ -254,7 +248,7 @@ def _run_interpretation(ctx: dict) -> dict:
 
 	def leader_fn() -> dict:
 		sources = [_fetch(u) for u in ctx["urls"]]
-		# text mode: own parser tolerates fences; floats never hit calldata
+		# text mode: floats never cross calldata
 		raw = gl.nondet.exec_prompt(_build_prompt(ctx, sources), response_format="text")
 		return {"ruling": _normalize_ruling(raw, allowed),
 				"sources": [{k: s[k] for k in ("url", "ok", "error")} for s in sources]}
@@ -274,9 +268,8 @@ class PrecedentInterpreter(gl.Contract):
 	paused: bool
 	policy_title: str
 	policy_text: str
-	core_principles: str  # entrenched at deploy
+	core_principles: str  # immutable
 	policy_version: u256
-	policy_updated_at: str
 	min_precedent_confidence: u256
 	proposals: DynArray[Proposal]
 	precedents: DynArray[Precedent]
@@ -290,7 +283,6 @@ class PrecedentInterpreter(gl.Contract):
 		self.policy_text = _text(policy_text, MAX_POLICY, "Policy text")
 		self.core_principles = (core_principles or "").strip()[:2000]
 		self.policy_version = u256(1)
-		self.policy_updated_at = _now()
 		self.min_precedent_confidence = u256(min_precedent_confidence)
 
 	def _only(self, who: Address, what: str) -> None:
@@ -307,12 +299,6 @@ class PrecedentInterpreter(gl.Contract):
 		_require(1 <= pid <= len(self.precedents), f"Unknown precedent {pid}")
 		return self.precedents[pid - 1]
 
-	def _mutable(self, proposal_id: int) -> Proposal:
-		p = self._proposal(proposal_id)
-		self._only(p.proposer, "proposer")
-		_require(p.status in OPEN, f"Proposal is {p.status}")
-		return p
-
 	def _new_proposal(self, kind, title, description, tags, urls, amendment_text="", appeal_of=0) -> int:
 		self._live()
 		pid = len(self.proposals) + 1
@@ -321,7 +307,7 @@ class PrecedentInterpreter(gl.Contract):
 			title=_text(title, MAX_TITLE, "Title"), description=_text(description, MAX_DESC, "Description"),
 			tags_json=json.dumps(_clean_tags(tags)), urls_json=json.dumps(_clean_urls(urls)),
 			amendment_text=amendment_text, appeal_of=u256(appeal_of), status=PENDING,
-			submitted_at=_now(), attempts=u256(0), precedent_id=u256(0), ruling_json=""))
+			submitted_at=_now(), precedent_id=u256(0), ruling_json=""))
 		return pid
 
 	def _brief(self, p: Precedent) -> dict:
@@ -353,7 +339,7 @@ class PrecedentInterpreter(gl.Contract):
 		pid = len(self.precedents) + 1
 		tags = json.loads(p.tags_json)
 		self.precedents.append(Precedent(
-			id=u256(pid), proposal_id=p.id, kind=p.kind, policy_version=self.policy_version,
+			id=u256(pid), proposal_id=p.id, policy_version=self.policy_version,
 			title=p.title, holding=r["holding"], verdict=r["verdict"],
 			ruling_json=json.dumps({**r, "sources": sources}, sort_keys=True), tags_json=json.dumps(tags),
 			keywords=" ".join(_keywords(f"{p.title} {p.description} {r['holding']}")), ruled_at=_now(),
@@ -366,7 +352,6 @@ class PrecedentInterpreter(gl.Contract):
 		# Post-consensus: the only place a ruling touches state.
 		r, sources = out["ruling"], out["sources"]
 		judged = self.policy_version
-		p.attempts = u256(p.attempts + 1)
 		new_id, outcome = 0, INSUFFICIENT
 		binding = r["confidence"] >= self.min_precedent_confidence
 		if r["verdict"] == INSUFFICIENT:
@@ -392,7 +377,6 @@ class PrecedentInterpreter(gl.Contract):
 				if r["verdict"] == "approved":
 					self.policy_text = p.amendment_text
 					self.policy_version = u256(judged + 1)
-					self.policy_updated_at = _now()
 					outcome = "amendment_adopted"
 		if r["verdict"] != INSUFFICIENT:
 			p.status = RULED
@@ -425,21 +409,16 @@ class PrecedentInterpreter(gl.Contract):
 
 	@gl.public.write
 	def add_evidence(self, proposal_id: int, url: str) -> None:
-		self._live()
-		p = self._mutable(proposal_id)
+		p = self._proposal(proposal_id)
+		self._only(p.proposer, "proposer")
+		_require(p.status in OPEN, f"Proposal is {p.status}")
 		p.urls_json = json.dumps(_clean_urls(json.loads(p.urls_json) + [url]))
 
 	@gl.public.write
-	def withdraw(self, proposal_id: int) -> None:
-		self._mutable(proposal_id).status = WITHDRAWN
-
-	@gl.public.write
 	def interpret(self, proposal_id: int) -> dict:
-		"""Consensus-critical judgment. Anyone may trigger it."""
 		self._live()
 		p = self._proposal(proposal_id)
 		_require(p.status in OPEN, f"Proposal is {p.status}")
-		_require(p.attempts < MAX_ATTEMPTS, "Attempts exhausted")
 		subject, exclude = None, 0
 		if p.kind == APPEAL:
 			orig = self._precedent(p.appeal_of)
@@ -450,6 +429,13 @@ class PrecedentInterpreter(gl.Contract):
 			   "core": self.core_principles, "version": self.policy_version, "subject": subject,
 			   "precedents": [self._brief(self.precedents[i - 1]) for i in cands]}
 		return self._apply(p, _run_interpretation(ctx))
+
+	@gl.public.write
+	def extend_policy(self, more_text: str) -> None:
+		# Drafting only: long policies exceed the deploy gas cap.
+		self._only(self.admin, "admin")
+		_require(len(self.proposals) == 0, "Policy frozen")
+		self.policy_text = _text(f"{self.policy_text}\n{more_text.strip()}", MAX_POLICY, "Policy text")
 
 	@gl.public.write
 	def set_paused(self, paused: bool) -> None:
@@ -463,7 +449,7 @@ class PrecedentInterpreter(gl.Contract):
 	@gl.public.view
 	def get_policy(self) -> dict:
 		return {"title": self.policy_title, "text": self.policy_text, "core_principles": self.core_principles,
-				"version": self.policy_version, "updated_at": self.policy_updated_at,
+				"version": self.policy_version,
 				"admin": self.admin.as_hex, "paused": self.paused,
 				"min_precedent_confidence": self.min_precedent_confidence,
 				"proposals": len(self.proposals), "precedents": len(self.precedents)}

@@ -1,6 +1,6 @@
 # Precedent-Based Policy Interpreter: design notes
 
-Source: [contracts/precedent_interpreter.py](../contracts/precedent_interpreter.py). The contract keeps its in-source docs short, because Bradbury rejects deploys over roughly 20 KB of source. This file holds the full rationale.
+Source: [contracts/precedent_interpreter.py](../contracts/precedent_interpreter.py). The contract keeps its in-source docs short because of Bradbury's deploy gas cap (see [Deploy size](#deploy-size)). This file holds the full rationale.
 
 ## What it is
 
@@ -15,10 +15,9 @@ submit_proposal / propose_amendment (admin) / appeal(precedent)
         |
         v
    PENDING --interpret()--> RULED                  (verdict recorded)
-      ^  |                   +- confidence >= min  -> new Precedent
-      |  |                   +- confidence <  min  -> "ruled_non_binding"
-      |  +--> INSUFFICIENT_EVIDENCE --add_evidence()--> interpret() again (max 3 attempts)
-      +-- withdraw() by proposer
+         |                   +- confidence >= min  -> new Precedent
+         |                   +- confidence <  min  -> "ruled_non_binding"
+         +--> INSUFFICIENT_EVIDENCE --add_evidence()--> interpret() again
 ```
 
 `interpret()` is permissionless. Anyone may pay to have an open case judged.
@@ -33,13 +32,13 @@ submit_proposal / propose_amendment (admin) / appeal(precedent)
 
 | Field | Why |
 |---|---|
-| `policy_text`, `policy_version`, `policy_updated_at` | The current law. Each precedent records the version it was judged under, and the prompt tells the model to weigh older-version rulings less where the text changed. |
+| `policy_text`, `policy_version` | The current law. Each precedent records the version it was judged under, and the prompt tells the model to weigh older-version rulings less where the text changed. |
 | `core_principles` | Entrenched at deploy and never writable. Amendments are judged against it, so the admin can't amend the policy into something else. |
-| `proposals: DynArray[Proposal]` | Every case, with status, attempts, evidence URLs and the last full ruling (`ruling_json`). Ids are 1-based, so 0 means none. |
+| `proposals: DynArray[Proposal]` | Every case, with status, evidence URLs and the last full ruling (`ruling_json`). Ids are 1-based, so 0 means none. |
 | `precedents: DynArray[Precedent]` | Append-only case law. Typed fields hold what retrieval and appeals use (`verdict`, `holding`, `superseded_by`, `affirmations`, `appeals`, `policy_version`). The full normalised ruling plus evidence fetch status sits in `ruling_json`. |
 | `tag_index: TreeMap[str, DynArray[u256]]` | Tag to precedent ids, so retrieval doesn't scan all history. |
 | `keywords` (per precedent) | Deterministic keyword set from the title, description and holding, used for scoring. |
-| `admin`, `paused` | Deliberately weak. The admin can pause and propose amendments. It can't edit policy, rulings or precedents. |
+| `admin`, `paused` | Deliberately weak. The admin can pause, propose amendments, and `extend_policy` only while no case exists yet (drafting). Once a case exists it can't edit policy, rulings or precedents. |
 
 The **holding** (a one-sentence general rule, without names) is what makes precedents reusable. Later prompts show holdings and conditions, not the whole earlier case.
 
@@ -99,7 +98,7 @@ The **holding** (a one-sentence general rule, without names) is what makes prece
 | LLM cites a non-existent or unshown precedent | Dropped by `_id_list`. A leader that keeps it fails rule 0. |
 | Conflicting precedents | The model must list any it departs from (`departs_from_precedent_ids`). Departure caps consistency at `medium`, and validators must agree a departure happened. |
 | Evidence fetch failure | Recorded per URL with an error, and the prompt shows `UNAVAILABLE ... do not guess`. Validators must see the same availability. |
-| Thin evidence | `insufficient_evidence` changes no law. The proposer can `add_evidence` and retry (max 3 attempts, max 4 URLs). |
+| Thin evidence | `insufficient_evidence` changes no law. The proposer can `add_evidence` (max 4 URLs) and anyone can re-run `interpret()`, at their own gas cost. |
 | Malformed or non-JSON LLM output | `_parse_json` extracts the first `{...}`, tolerating code fences. Unknown verdict values raise `UserError`, so the transaction reverts and nothing is stored. |
 | Float or string confidence | Parsed in the contract (`response_format="text"`), so floats never cross calldata. `0.9` becomes 90 and junk becomes 0. |
 | Low-confidence ruling | Recorded on the case as `ruled_non_binding`. It doesn't become precedent and can't overturn one. |
@@ -143,8 +142,19 @@ Cross-contract calls happen in deterministic code, never inside a non-det block.
 | Tags | 6 |
 | Evidence URLs per case | 4 (5000 fetched chars each) |
 | Candidate precedents per case | 8 |
-| Attempts per case | 3 |
 | Appeals per precedent | 3 |
 | Confidence tolerance | ±20 |
 | Citation overlap | Jaccard 0.5 |
 | Default binding confidence | 60 (set at deploy) |
+
+## Deploy size
+
+Bradbury's deploy gas covers the contract source **and** the constructor arguments. That is about 830 gas per byte, against a cap of about 16.78M. Two measurements:
+
+| Payload | Estimated gas |
+|---|---|
+| 19,973 B source + placeholder policy | 16.60M |
+| Same source + a ~700-byte policy | 16.99M (rejected: "gas limit too high") |
+
+So the source is held at 19.3 KB or less (enforced by `tests/direct/test_contract_size.py`), leaving about 1 KB for the title, opening policy and core principles. A longer policy is deployed with its first part, and the admin then calls `extend_policy(text)` to append the rest (up to 8000 chars total) before the first case is submitted. After that, the policy changes only through judged amendments.
+
