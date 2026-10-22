@@ -25,8 +25,8 @@ submit_proposal / propose_amendment (admin) / appeal(precedent)
 | Case kind | Outcomes |
 |---|---|
 | `action` | `precedent_set`, `ruled_non_binding`, `insufficient_evidence` |
-| `amendment` | `amendment_adopted` (only on a plain `approved`), `amendment_rejected` |
-| `appeal` | `affirmed` (same verdict: affirmations +1), `overturned` (new precedent; old one gets `superseded_by`), `not_overturned_low_confidence` |
+| `amendment` | `amendment_adopted` (on any approval), `amendment_rejected` |
+| `appeal` | `affirmed` (same approve/reject outcome: affirmations +1), `overturned` (new precedent; old one gets `superseded_by`), `not_overturned_low_confidence` |
 
 ## State design
 
@@ -66,7 +66,7 @@ The **holding** (a one-sentence general rule, without names) is what makes prece
 |---|---|---|
 | 0 | The leader's ruling must survive re-normalisation unchanged, and cite only precedent ids that were shown | Normalisation is idempotent, so a doctored or malformed leader result (invented ids, `compatible` contradicting `verdict`, unclamped confidence) fails here. |
 | 0 | The same evidence sources must be readable (per-URL `ok` flags) | Stops a leader from claiming a source failed in order to suppress it, and stops agreement over different evidence. |
-| 1 | `verdict` must be identical (`compatible` is derived from it) | The verdict is the on-chain consequence. `approved` and `approved_with_conditions` are distinct, because whether obligations attach is a decision. |
+| 1 | Same approve/reject outcome (`compatible`). Non-approvals must match exactly (`rejected` vs `insufficient_evidence`) | That is the on-chain consequence. Whether conditions attach is **not** voted on: an earlier rule that required it made larger validator sets re-running a round split on conditional approvals, so rounds ended undetermined on Bradbury. The leader's conditions are stored. |
 | 1b | Both `insufficient_evidence`: agree | Abstaining changes no law. Only the case record changes. |
 | 2 | Both must agree on whether the ruling **departs from precedent** | Breaking with case law is the most consequential interpretive act, so it must be shared. |
 | 3 | Cited precedent sets need Jaccard overlap of at least 0.5, and "novel" only if both cite none | "Substantially the same precedents" without demanding identical lists. |
@@ -103,7 +103,7 @@ The **holding** (a one-sentence general rule, without names) is what makes prece
 | Float or string confidence | Parsed in the contract (`response_format="text"`), so floats never cross calldata. `0.9` becomes 90 and junk becomes 0. |
 | Low-confidence ruling | Recorded on the case as `ruled_non_binding`. It doesn't become precedent and can't overturn one. |
 | Prompt injection in proposal or evidence | Case text is fenced as untrusted data. Validators run their own models, so one hijacked model can't decide alone. |
-| Policy amendment | Admin-only proposal, judged against `core_principles` and settled precedent. Only a plain `approved` adopts it, and the version increments. Pending cases are judged under the version current at `interpret()` time, recorded as `judged_policy_version`. |
+| Policy amendment | Admin-only proposal, judged against `core_principles` and settled precedent. Any approval adopts it, and the version increments. Pending cases are judged under the version current at `interpret()` time, recorded as `judged_policy_version`. |
 | Appeal spam | At most 3 appeals per precedent. Superseded precedents can't be appealed. |
 | Emergency | `set_paused(True)` blocks new cases and interpretation. Reads still work. |
 | Unbounded growth | Retrieval is bounded (24 recent plus 48 per tag). View lists are capped at 50. |

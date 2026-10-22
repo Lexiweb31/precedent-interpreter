@@ -5,7 +5,7 @@ Cases are judged against a policy AND prior rulings; confident rulings become
 precedents, appeals affirm or supersede them, amendments must pass judgment.
 Consensus: gl.vm.run_nondet; every validator re-fetches evidence and re-judges
 with its own LLM, then votes on decision fields only (_rulings_equivalent).
-Rationale and the 19.3 KB / ASCII source limit: docs/precedent-interpreter.md."""
+Rationale, 19.3 KB ASCII limit: docs/precedent-interpreter.md."""
 from genlayer import *
 
 from dataclasses import dataclass, fields
@@ -19,7 +19,7 @@ VERDICTS = ("approved", "approved_with_conditions", "rejected", "insufficient_ev
 APPROVALS = VERDICTS[:2]
 CONSISTENCY = ("low", "medium", "high", "novel")
 _SYN = {"approve": "approved", "reject": "rejected", "insufficient": "insufficient_evidence"}
-_STOP = frozenset("that this with from have will their they them what when which".split())
+_STOP = frozenset("that this with from have will what when which".split())
 
 MAX_POLICY, MAX_TITLE, MAX_DESC = 8000, 160, 4000
 MAX_TAGS, MAX_URLS, FETCH_CHARS = 6, 4, 5000
@@ -91,19 +91,19 @@ def _clean_tags(tags) -> list:
 		t = re.sub(r"[^a-z0-9-]", "", str(t).lower())[:32]
 		if t and t not in out:
 			out.append(t)
-	_require(len(out) <= MAX_TAGS, f"At most {MAX_TAGS} tags")
+	_require(len(out) <= MAX_TAGS, "Too many tags")
 	return out
 
 def _clean_urls(urls) -> list:
 	out = [str(u).strip() for u in urls or [] if str(u).strip()]
-	_require(len(out) <= MAX_URLS, f"At most {MAX_URLS} URLs")
+	_require(len(out) <= MAX_URLS, "Too many URLs")
 	for u in out:
 		_require(u.startswith(("https://", "http://")) and len(u) < 2049, "Invalid URL")
 	return out
 
 def _text(value, limit: int, field: str) -> str:
 	v = (value or "").strip()
-	_require(0 < len(v) <= limit, f"{field} must be 1-{limit} chars")
+	_require(0 < len(v) <= limit, f"{field}: 1-{limit} chars")
 	return v
 
 def _parse_json(raw) -> dict:
@@ -169,7 +169,7 @@ def _normalize_ruling(raw, allowed: list) -> dict:
 			"holding": str(d.get("holding") or "").strip()[:400].strip(), "confidence": conf}
 
 def _rulings_equivalent(leader: dict, mine: dict, allowed: list) -> bool:
-	# Leader result must be normalised (only shown ids) and see the same sources.
+	# Leader result must be normalised and see the same sources.
 	try:
 		a = leader["ruling"]
 		if _normalize_ruling(a, allowed) != a:
@@ -179,7 +179,8 @@ def _rulings_equivalent(leader: dict, mine: dict, allowed: list) -> bool:
 	except (KeyError, TypeError, gl.vm.UserError):
 		return False
 	b = mine["ruling"]
-	if a["verdict"] != b["verdict"]:
+	# Approve/reject must match; conditions may differ.
+	if a["compatible"] != b["compatible"] or not a["compatible"] and a["verdict"] != b["verdict"]:
 		return False
 	if a["verdict"] == "insufficient_evidence":
 		return True
@@ -195,7 +196,6 @@ def _rulings_equivalent(leader: dict, mine: dict, allowed: list) -> bool:
 	return abs(a["confidence"] - b["confidence"]) <= CONF_TOL
 
 def _fetch(url: str) -> dict:
-	# GET first; slow render only for HTML.
 	text, err = "", "empty response"
 	try:
 		r = gl.nondet.web.get(url)
@@ -362,7 +362,7 @@ class PrecedentInterpreter(gl.Contract):
 			p.status = INSUFFICIENT
 		elif p.kind == APPEAL:
 			orig = self.precedents[p.appeal_of - 1]
-			if r["verdict"] == orig.verdict:
+			if r["compatible"] == (orig.verdict in APPROVALS):
 				orig.affirmations = u256(orig.affirmations + 1)
 				outcome = "affirmed"
 			elif binding:
@@ -378,7 +378,7 @@ class PrecedentInterpreter(gl.Contract):
 			outcome = "precedent_set"
 			if p.kind == AMENDMENT:
 				outcome = "amendment_rejected"
-				if r["verdict"] == "approved":
+				if r["compatible"]:
 					self.policy_text = p.amendment_text
 					self.policy_version = u256(judged + 1)
 					outcome = "amendment_adopted"
@@ -405,7 +405,7 @@ class PrecedentInterpreter(gl.Contract):
 	@gl.public.write
 	def appeal(self, precedent_id: int, argument: str, evidence_urls: list) -> int:
 		prec = self._precedent(precedent_id)
-		_require(prec.superseded_by == 0, "Precedent superseded")
+		_require(prec.superseded_by == 0, "Superseded")
 		_require(prec.appeals < MAX_APPEALS, "Appeal limit")
 		prec.appeals = u256(prec.appeals + 1)
 		return self._new_proposal(APPEAL, f"Appeal of #{precedent_id}: {prec.title}"[:MAX_TITLE],
@@ -426,7 +426,7 @@ class PrecedentInterpreter(gl.Contract):
 		subject, exclude = None, 0
 		if p.kind == APPEAL:
 			orig = self._precedent(p.appeal_of)
-			_require(orig.superseded_by == 0, "Precedent superseded")
+			_require(orig.superseded_by == 0, "Superseded")
 			subject, exclude = self._brief(orig), orig.id
 		cands = self._select_candidates(json.loads(p.tags_json), f"{p.title} {p.description}", exclude)
 		ctx = {**_plain(p), "policy_title": self.policy_title, "policy_text": self.policy_text,

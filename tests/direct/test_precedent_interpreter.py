@@ -169,6 +169,14 @@ class TestInterpretation:
 
 
 class TestAppealsAndAmendments:
+    def test_appeal_adding_conditions_still_affirms(self, direct_deploy, direct_vm):
+        c = _deploy(direct_deploy)
+        _rule(c, direct_vm, _llm("approved"))
+        direct_vm.clear_mocks()
+        direct_vm.mock_llm(".*", _llm("approved", conditions=["Publish reports"]))
+        r = c.interpret(c.appeal(1, "Should have required reports.", []))
+        assert r["outcome"] == "affirmed" and c.get_precedent(1)["in_force"]
+
     def test_appeal_affirms(self, direct_deploy, direct_vm):
         c = _deploy(direct_deploy)
         _rule(c, direct_vm, _llm("rejected"))
@@ -255,9 +263,15 @@ class TestEquivalence:
         direct_vm.mock_llm(".*", _llm("rejected"))
         assert direct_vm.run_validator() is False
 
-    def test_conditions_vs_plain_approval_disagrees(self, direct_deploy, direct_vm):
+    def test_conditions_vs_plain_approval_agrees(self, direct_deploy, direct_vm):
+        # Only approve vs reject must match; the leader's conditions are what get stored.
         self._leader(direct_deploy, direct_vm, _llm("approved"))
         direct_vm.mock_llm(".*", _llm("approved", conditions=["Quarterly reports"]))
+        assert direct_vm.run_validator() is True
+
+    def test_approval_vs_rejection_disagrees(self, direct_deploy, direct_vm):
+        self._leader(direct_deploy, direct_vm, _llm("approved", conditions=["Quarterly reports"]))
+        direct_vm.mock_llm(".*", _llm("rejected"))
         assert direct_vm.run_validator() is False
 
     def test_confidence_tolerance(self, direct_deploy, direct_vm):

@@ -19,8 +19,8 @@ Communities, DAOs, grant programs, research collaborations and agent operators a
 3. Anyone triggers `interpret()`. The contract deterministically selects the most relevant **in-force precedents** from storage, using its tag index, keyword overlap and how often a precedent has been affirmed.
 4. Validators fetch the evidence live and each judge the case against the policy text and those precedents with their own LLM. They must agree on a structured ruling: verdict, cited precedents, whether the ruling departs from precedent, consistency, conditions, confidence, and a one-sentence **holding**.
 5. A confident ruling becomes a new precedent. Later cases are shown its holding and must follow it or explicitly depart from it.
-6. **Appeals** re-decide a precedent's original case. The same verdict affirms the precedent, and affirmations raise its weight in retrieval. A different, confident verdict overturns it, marking the old precedent superseded.
-7. **Amendments** (admin-proposed only) are judged against the core principles and settled precedent, and adopted only on a plain `approved` verdict.
+6. **Appeals** re-decide a precedent's original case. The same approve/reject outcome affirms the precedent, and affirmations raise its weight in retrieval. A different, confident verdict overturns it, marking the old precedent superseded.
+7. **Amendments** (admin-proposed only) are judged against the core principles and settled precedent, and adopted only if approved.
 8. Other contracts gate actions with `get_verdict(proposal_id)`, which returns status, verdict, compatibility and binding conditions.
 
 The admin is deliberately weak: it can pause, propose amendments, and draft the policy before the first case. It can never edit the policy directly once cases exist, and never edit rulings or precedents.
@@ -40,7 +40,7 @@ Two models never write the same reasoning, so `strict_eq` can't work. `prompt_co
 |---|---|
 | The leader's ruling must be unchanged by re-normalisation and cite only precedents it was shown | Catches doctored or malformed leader results. |
 | The same evidence sources must be readable | Stops a leader from hiding evidence by claiming a fetch failed. |
-| Identical verdict | The on-chain consequence. Approval with and without binding conditions are distinct verdicts. |
+| Same approve/reject outcome (and the same kind of non-approval) | The on-chain consequence. Conditions aren't voted on, and the leader's are stored. Requiring them to match made re-runs by larger validator sets end undetermined. |
 | Same answer to "does this ruling depart from precedent?" | Breaking with case law is the most consequential interpretive act. |
 | Cited precedents overlap (Jaccard ≥ 0.5) | "Substantially the same precedents", without demanding identical lists. |
 | Consistency within one step; confidence within 20 points | Graded judgments get bands. |
@@ -54,29 +54,33 @@ Reasoning and holding text are never compared. Borderline cases disagree on purp
 - Design notes (state, equivalence, edge cases, integration): [docs/precedent-interpreter.md](docs/precedent-interpreter.md)
 - Network: GenLayer Bradbury testnet
 
-- Deployed contract: [`0xa6D97D6dc275F67D4467e409C01327F1bDAd7b37`](https://explorer-bradbury.genlayer.com/address/0xa6D97D6dc275F67D4467e409C01327F1bDAd7b37)
+- Deployed contract: [`0x048A6D9a69173D6AB7272f2d5611af51CBDe3981`](https://explorer-bradbury.genlayer.com/address/0x048A6D9a69173D6AB7272f2d5611af51CBDe3981)
 - Deployment record: [deployments.json](deployments.json)
 
 ### Live consensus on Bradbury
 
-The deployed contract holds a 5-clause Community Grants Charter and the following case law. Each ruling was decided by validator consensus (`AGREE`). Case 1 is `FINALIZED`; cases 2–4 are `READY_TO_FINALIZE`, past their appeal window.
+The deployed contract holds a 5-clause Community Grants Charter and the following case law, each ruling decided by validator consensus (`AGREE`):
 
 | # | Case | Verdict | Cites | Consistency | Conf. | Outcome | Transaction |
 |---|---|---|---|---|---|---|---|
-| 1 | Open-source block indexer grant | approved_with_conditions | none | novel | 95 | precedent #1 | [0x095281…1e014](https://explorer-bradbury.genlayer.com/tx/0x095281cfa76f3a2d08c49a07044778e6b66f6eb7eb0e9e61a56ba9028b01e014) |
-| 2 | Open-source transaction simulator grant | approved_with_conditions | #1 | high | 95 | precedent #2 | [0x1d9a3c…a00cb](https://explorer-bradbury.genlayer.com/tx/0x1d9a3cf5b9aa7d6d79a17852278e649c2101965b53eacaedd2abde75e7da00cb) |
-| 3 | Influencer campaign + buyback for a token | rejected | #1, #2 | high | 99 | precedent #3 | [0xc2c0d4…fbd06](https://explorer-bradbury.genlayer.com/tx/0xc2c0d445e449bfd44ff1080b37853117b3db6972cb0bd4c0de2e03a0504fbd06) |
-| 4 | Appeal of #3 ("raises ecosystem awareness") | rejected | #1, #2 | high | 100 | #3 affirmed | [0x612344…e1dd9](https://explorer-bradbury.genlayer.com/tx/0x61234421492b1e90e57fead73220a3c29fa7fa1815f0f597ff95a2cd77ce1dd9) |
+| 1 | Open-source block indexer grant | approved_with_conditions | none | novel | 95 | precedent #1 | [0x83a2cb…78d50](https://explorer-bradbury.genlayer.com/tx/0x83a2cb9ba13b4b0e0e623c019ca561d0accc5e63febdc91d3bcab7c494e78d50) |
+| 2 | Library maintenance grant, **license URL fetched live by validators** | approved_with_conditions | #1 | high | 100 | precedent #2 | [0x717661…6a3f0](https://explorer-bradbury.genlayer.com/tx/0x717661259cee8ad086639d4f1bdad110ea784dc408c8f4b35ef9d85dbfa6a3f0) |
+| 3 | Open-source transaction simulator grant | approved_with_conditions | #1, #2 | high | 95 | precedent #3 | [0xfb7691…fe6a2](https://explorer-bradbury.genlayer.com/tx/0xfb769104e0b370d813fbbbe3e4e0086d86cb43db12d999eaa7b65f7af7cfe6a2) |
+| 4 | Influencer campaign + buyback for a token | rejected | none | novel | 90 | precedent #4 | [0xc08bf6…58972](https://explorer-bradbury.genlayer.com/tx/0xc08bf6c37f5809f16b797c541f058e2f9f15c785ca01cb824b891120e5658972) |
+| 5 | Appeal of #4 ("raises ecosystem awareness") | rejected | #1, #2, #3 | high | 100 | #4 affirmed | [0x2d026d…dc701](https://explorer-bradbury.genlayer.com/tx/0x2d026d1d6fda48e677c9087e7e9a8065e13ac24e880d9434711aeee9c88dc701) |
 
-Holding stored for precedent #3: *"Grants for public-good open-source work are permissible only when they are not used for marketing, token promotion, or price support, and they must serve the ecosystem rather than a private token's price."*
+Cases 1–4 are `READY_TO_FINALIZE` (past their appeal window); the appeal was still `ACCEPTED` (inside its window) at the last check.
 
-### Live evidence fetching: honest status
+Case 2 shows the full Intelligent Contract path: each validator fetched `https://raw.githubusercontent.com/jquery/jquery/main/LICENSE.txt` inside the consensus round (`sources: ok`) and independently agreed the grant is compatible, citing precedent #1.
 
-- **First contract:** a case with an evidence URL timed out in all five rounds tried. The evidence fetcher then used only the browser renderer (`web.render`).
-- **Fix:** the current source fetches with plain `web.get` first and renders only HTML pages. It's deployed at [`0xfE3DE78e…57262`](https://explorer-bradbury.genlayer.com/address/0xfE3DE78ef881cb471C00d8316759DfAd27657262). There, the evidence case's first round was `ACCEPTED / AGREE`: every validator fetched the license file (`ok: true`) and agreed on *approved_with_conditions*, citing precedent #1.
-- **Re-runs:** that round and two others on this contract were later re-run by validators and ended `UNDETERMINED`, so none of their rulings was applied ([deployments-v2.json](deployments-v2.json)). A likely cause is that the equivalence rule treats *approved* and *approved_with_conditions* as different verdicts. The larger validator set re-running a round can split on whether to attach conditions. That trade-off is open: it makes conditional rulings strict but harder to finalise.
+### What earlier deployments taught
 
-Known network behaviour: Bradbury frequently ends rounds with `LEADER_TIMEOUT` / `VALIDATORS_TIMEOUT` (no state change), occasionally reverts the outer EVM transaction, and dropped RPC connections twice during these runs. The scripts retry all three.
+Earlier deployments ([deployments-v1.json](deployments-v1.json), [deployments-v2.json](deployments-v2.json)) showed two problems this version fixes:
+
+- Fetching evidence with the browser renderer timed out every round, so the contract now uses `web.get` first.
+- Requiring validators to agree on *whether* conditions attach made re-runs by larger validator sets end `UNDETERMINED`, so the vote is now on approve versus reject.
+
+Bradbury still often times out rounds (no state change) and intermittently reverts the outer transaction. The deploy script retries both, and `--check` re-reads final statuses later.
 
 ### Tests
 
@@ -89,4 +93,4 @@ Known network behaviour: Bradbury frequently ends rounds with `LEADER_TIMEOUT` /
 2. Call `get_recent_precedents(10, true)` to see the in-force case law, with holdings, citations and affirmations.
 3. Call `find_relevant_precedents(["tooling"], "open-source wallet SDK")` to see exactly which precedents a new grant would be judged against.
 4. Call `get_verdict(3)` to see the compact answer another contract would gate on.
-5. To reproduce: put a funded Bradbury key in `.env` as `DEPLOYER_PRIVATE_KEY`, then run `python scripts/deploy_bradbury.py --demo && python scripts/demo_evidence_case.py`. `demo_evidence_case.py <id>` retries an existing proposal.
+5. To reproduce: put a funded Bradbury key in `.env` as `DEPLOYER_PRIVATE_KEY`, then run `python scripts/deploy_bradbury.py --demo`, and later `--check` to re-read final statuses.

@@ -3,15 +3,18 @@ Deploy PrecedentInterpreter to GenLayer Bradbury testnet and (optionally) build
 a small body of case law on it under real validator consensus:
 
   1. an open-source tooling grant          -> expected approved (novel)
-  2. a similar tooling grant               -> expected to cite precedent #1
-  3. a token marketing campaign            -> expected rejected
-  4. an appeal of the marketing ruling     -> expected affirmed
+  2. a grant with a live evidence URL      -> validators fetch it in-round
+  3. a similar tooling grant               -> expected to cite earlier grants
+  4. a token marketing campaign            -> expected rejected
+  5. an appeal of the marketing ruling     -> expected affirmed
 
     # .env
     DEPLOYER_PRIVATE_KEY=0x...   # admin; needs testnet GEN for gas
 
-    python scripts/deploy_bradbury.py           # deploy only
-    python scripts/deploy_bradbury.py --demo    # deploy + cases
+    python scripts/deploy_bradbury.py                 # deploy only
+    python scripts/deploy_bradbury.py --demo          # deploy + cases
+    python scripts/deploy_bradbury.py --check         # later: re-read final statuses
+    (add --out=FILE.json to write somewhere other than deployments.json)
 
 Writes deployments.json. Bradbury sometimes times out a consensus round
 (LEADER_TIMEOUT / VALIDATORS_TIMEOUT) without changing state; interpret() is
@@ -30,6 +33,10 @@ from genlayer_py.abi.transactions import serialize
 from genlayer_py.chains import testnet_bradbury
 from genlayer_py.contracts.utils import make_calldata_object
 from genlayer_py.exceptions import GenLayerError
+from genlayer_py.types import transactions as _tx_types
+
+# Bradbury reports a status code (14) this SDK version has no name for; don't crash on it.
+_tx_types.TRANSACTION_STATUS_NUMBER_TO_NAME.setdefault("14", type("S", (), {"value": "STATUS_14"})())
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPLORER = "https://explorer-bradbury.genlayer.com"
@@ -46,19 +53,24 @@ POLICY = (
 )
 CORE = "Funds serve public goods only and never benefit a private token's price."
 
-CASES = [
+CASES = [  # (label, tags, title, description, evidence URLs)
     ("open-source indexer", ["tooling", "infrastructure"],
      "Fund an open-source block indexer",
      "Request 30,000 USDC to build an MIT-licensed block indexer and public API that any wallet or "
-     "explorer can self-host. Deliverables: indexer, docs, quarterly reports."),
+     "explorer can self-host. Deliverables: indexer, docs, quarterly reports.", []),
+    ("live evidence URL", ["tooling", "maintenance"],
+     "Fund maintenance of an MIT-licensed JavaScript library",
+     "Request 15,000 USDC for a year of security fixes and docs for an open-source library used across "
+     "ecosystem frontends. The license is linked as evidence; quarterly public reports will be published.",
+     ["https://raw.githubusercontent.com/jquery/jquery/main/LICENSE.txt"]),
     ("similar tooling grant", ["tooling"],
      "Fund an open-source transaction simulator",
      "Request 20,000 USDC for an Apache-2.0 transaction simulator CLI for developers, with docs and "
-     "quarterly public reports. Builds on the same open tooling approach as earlier indexer grants."),
+     "quarterly public reports. Builds on the same open tooling approach as earlier indexer grants.", []),
     ("marketing campaign", ["marketing"],
      "Influencer campaign for the XYZ token",
      "Request 40,000 USDC to pay influencers to promote the XYZ token and run a buyback to support "
-     "its price during launch week."),
+     "its price during launch week.", []),
 ]
 APPEAL = ("The campaign would raise awareness of the ecosystem, which indirectly benefits public goods.")
 
@@ -115,17 +127,46 @@ def _view(client, address, method, *args):
 
 def _interpret(client, address, proposal_id: int, label: str) -> dict:
     print(f"case: {label} (proposal {proposal_id})")
-    for attempt in range(3):
-        tx_hash, r = _send(client, address, "interpret", [proposal_id])
+    tx_hash, r = None, {}
+    for attempt in range(4):
+        try:
+            tx_hash, r = _send(client, address, "interpret", [proposal_id])
+        except Exception as e:  # dropped RPC connection: the round may still finish on-chain
+            print(f"    RPC error ({type(e).__name__}); re-checking")
+            time.sleep(60)
+            if _view(client, address, "get_proposal", proposal_id)["status"] == "ruled":
+                r = {"status_name": "ACCEPTED", "result_name": "AGREE", "tx_execution_result_name": "FINISHED_WITH_RETURN"}
+                break
+            continue
         if _committed(r) or r.get("status_name") not in TIMEOUTS:
             break
-        print(f"    consensus round timed out, retrying ({attempt + 1}/2)")
+        print(f"    consensus round timed out, retrying ({attempt + 1}/3)")
     ruling = _view(client, address, "get_proposal", proposal_id).get("ruling") if _committed(r) else None
     if ruling:
         print(f"    -> {ruling['verdict']} / {ruling['outcome']} / cites {ruling['relevant_precedent_ids']} "
               f"/ {ruling['consistency_with_precedents']} / conf {ruling['confidence']}")
     return {"label": label, "proposal_id": proposal_id, "tx": tx_hash, "status": r.get("status_name"),
             "result": r.get("result_name"), "ruling": ruling}
+
+
+def _summary(client, address) -> dict:
+    return {"policy": _view(client, address, "get_policy"),
+            "precedents_in_force": [
+                {k: p[k] for k in ("id", "title", "verdict", "holding", "relevant_precedent_ids", "affirmations")}
+                for p in _view(client, address, "get_recent_precedents", 10, True)]}
+
+
+def check(client, out: Path) -> int:
+    """Re-read final tx statuses: accepted rounds can still be re-run and end UNDETERMINED."""
+    record = json.loads(out.read_text())
+    for case in record["cases"]:
+        if case.get("tx"):
+            case["final_status"] = client.get_transaction(transaction_hash=case["tx"]).get("status_name")
+            print(f"{case['label']}: {case['final_status']}")
+    record.update(_summary(client, record["address"]))
+    print(f"precedents on-chain: {record['policy']['precedents']}")
+    out.write_text(json.dumps(record, indent=2) + "\n")
+    return 0
 
 
 def main() -> int:
@@ -135,6 +176,9 @@ def main() -> int:
         return 1
     admin = create_account(key)
     client = create_client(chain=testnet_bradbury, account=admin)
+    out = ROOT / next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--out=")), "deployments.json")
+    if "--check" in sys.argv:
+        return check(client, out)
     print(f"admin {admin.address}\ndeploying PrecedentInterpreter...")
     code = (ROOT / "contracts" / "precedent_interpreter.py").read_text()
     tx_hash = client.deploy_contract(code=code, args=[POLICY_TITLE, POLICY, CORE, 60])
@@ -149,13 +193,13 @@ def main() -> int:
               "cases": []}
 
     def save():
-        (ROOT / "deployments.json").write_text(json.dumps(record, indent=2) + "\n")
+        out.write_text(json.dumps(record, indent=2) + "\n")
 
     save()
     if "--demo" in sys.argv:
         marketing_precedent = 0
-        for label, tags, title, desc in CASES:
-            _send(client, address, "submit_proposal", [title, desc, tags, []])
+        for label, tags, title, desc, urls in CASES:
+            _send(client, address, "submit_proposal", [title, desc, tags, urls])
             pid = _view(client, address, "get_policy")["proposals"]
             case = _interpret(client, address, pid, label)
             record["cases"].append(case)
@@ -166,12 +210,9 @@ def main() -> int:
             _send(client, address, "appeal", [marketing_precedent, APPEAL, []])
             pid = _view(client, address, "get_policy")["proposals"]
             record["cases"].append(_interpret(client, address, pid, f"appeal of #{marketing_precedent}"))
-        record["policy"] = _view(client, address, "get_policy")
-        record["precedents_in_force"] = [
-            {k: p[k] for k in ("id", "title", "verdict", "holding", "relevant_precedent_ids", "affirmations")}
-            for p in _view(client, address, "get_recent_precedents", 10, True)]
+        record.update(_summary(client, address))
         save()
-    print("wrote deployments.json")
+    print(f"wrote {out.name}")
     return 0
 
 
